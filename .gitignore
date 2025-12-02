@@ -1,0 +1,40 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.playwright/
+
+# Logs
+logs/
+*.log
+*.log.*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+.history/
+
+# Coverage
+coverage/
+coverage-final.json
+lcov-report/

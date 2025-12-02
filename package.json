@@ -1,0 +1,20 @@
+{
+  "name": "cuidadania-job",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "nodemailer": "^6.9.7",
+    "playwright": "^1.40.0"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "Monitor automatizado de citas consulares con notificaciones por email",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}
