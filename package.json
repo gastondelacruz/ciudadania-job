@@ -4,6 +4,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "debug": "node --inspect-brk index.js",
+    "debug:chrome": "node --inspect index.js",
     "install-browsers": "npx playwright install chromium"
   },
   "dependencies": {

@@ -65,39 +65,165 @@ async function verificarDisponibilidad() {
       "https://www.citaconsular.es/es/hosteds/widgetdefault/298f7f17f58c0836448a99edecf16e66a/#services"
     );
 
-    // ⭐ Esperar a que el iframe cargue
-    await page.waitForTimeout(3000);
+    console.log("⏳ Esperando a que termine el loading...");
 
-    // Obtener todos los frames
-    const frames = page.frames();
-    console.log(`📄 Frames encontrados: ${frames.length}`);
+    // Esperar a que la página termine de cargar
+    await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => {
+      console.log("⚠️  Timeout esperando networkidle, continuando...");
+    });
 
-    // Buscar en todos los frames
-    let encontrado = false;
-    for (const frame of frames) {
+    // Esperar a que aparezca el contenedor de servicios o cualquier contenido relevante
+    // Buscamos en todos los frames posibles
+    let contenidoCargado = false;
+    const maxIntentos = 20;
+    const delayEntreIntentos = 4000;
+
+    for (let intento = 1; intento <= maxIntentos; intento++) {
+      const frames = [page, ...page.frames()];
+
+      for (const frame of frames) {
+        try {
+          // Intentar encontrar el contenedor de servicios
+          const servicesContainer = frame.locator("#idDivBktServicesContainer");
+          const containerCount = await servicesContainer.count();
+
+          if (containerCount > 0) {
+            // Verificar que el contenedor tenga contenido
+            const containerText = await servicesContainer.textContent();
+            if (containerText && containerText.trim().length > 0) {
+              console.log(
+                "✅ Contenedor de servicios encontrado y con contenido"
+              );
+              contenidoCargado = true;
+              break;
+            }
+          }
+
+          // Alternativa: buscar el texto "No hay horas disponibles" o cualquier contenido
+          const noHayHorasElements = frame.getByText(
+            "No hay horas disponibles",
+            {
+              exact: false,
+            }
+          );
+          const count = await noHayHorasElements.count();
+
+          if (count > 0) {
+            console.log(
+              "✅ Contenido encontrado (texto 'No hay horas disponibles')"
+            );
+            contenidoCargado = true;
+            break;
+          }
+        } catch (e) {
+          // Continuar buscando
+        }
+      }
+
+      if (contenidoCargado) {
+        break;
+      }
+
+      if (intento < maxIntentos) {
+        console.log(
+          `⏳ Intento ${intento}/${maxIntentos}: Esperando contenido...`
+        );
+        await page.waitForTimeout(delayEntreIntentos);
+      }
+    }
+
+    if (!contenidoCargado) {
+      console.log(
+        "⚠️  No se pudo confirmar que el contenido haya cargado completamente"
+      );
+    }
+
+    // Verificar que el body no esté vacío
+    const bodyContent = await page.locator("body").textContent();
+    if (!bodyContent || bodyContent.trim() === "") {
+      throw new Error("❌ El body de la página está vacío");
+    }
+
+    // Obtener todos los frames (incluyendo la página principal)
+    const frames = [page, ...page.frames()];
+    console.log(
+      `📄 Frames encontrados: ${frames.length} (incluyendo página principal)`
+    );
+
+    // Buscar en todos los frames (incluyendo la página principal)
+    let textoVisibleEncontrado = false;
+    for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+      const frame = frames[frameIndex];
       try {
-        const noHayHorasText = frame
-          .locator('text="No hay horas disponibles."')
-          .first();
-        const isVisible = await noHayHorasText.isVisible({ timeout: 1000 });
+        console.log(
+          `🔍 Buscando en frame ${frameIndex === 0 ? "principal" : frameIndex}...`
+        );
 
-        if (isVisible) {
-          console.log("✅ El texto 'No hay horas disponibles' fue encontrado.");
-          encontrado = true;
+        // Usar getByText como en el test que funciona
+        const noHayHorasElements = frame.getByText("No hay horas disponibles", {
+          exact: false,
+        });
+        const count = await noHayHorasElements.count();
+
+        console.log(`📊 Elementos encontrados con el texto: ${count}`);
+
+        if (count > 0) {
+          // Verificar cada elemento encontrado
+          for (let i = 0; i < count; i++) {
+            try {
+              const element = noHayHorasElements.nth(i);
+              const isVisible = await element.isVisible({ timeout: 2000 });
+              const textContent = await element.textContent();
+              const computedStyle = await element.evaluate((el) => {
+                return window.getComputedStyle(el).display;
+              });
+
+              console.log(
+                `🔍 Elemento ${i + 1}: visible=${isVisible}, display=${computedStyle}, text="${textContent?.trim().substring(0, 50)}..."`
+              );
+
+              // Verificar que esté visible y no tenga display:none
+              if (isVisible && computedStyle !== "none") {
+                console.log(
+                  "✅ El texto 'No hay horas disponibles' está presente y visible. No hay citas disponibles."
+                );
+                textoVisibleEncontrado = true;
+                break;
+              }
+            } catch (e) {
+              console.log(
+                `⚠️  Error verificando elemento ${i + 1}:`,
+                e.message
+              );
+              continue;
+            }
+          }
+        }
+
+        if (textoVisibleEncontrado) {
           break;
         }
       } catch (e) {
         // Continuar buscando en otros frames
+        console.log(
+          `⚠️  Error buscando en frame ${frameIndex === 0 ? "principal" : frameIndex}, continuando...`,
+          e.message
+        );
         continue;
       }
     }
 
-    if (!encontrado) {
+    // Enviar email cuando el texto NO está visible (hay citas disponibles)
+    if (!textoVisibleEncontrado) {
       console.log(
-        "🎉 ¡El texto 'No hay horas disponibles' no fue encontrado! Posiblemente haya citas."
+        "🎉 ¡El texto 'No hay horas disponibles' NO está visible! Posiblemente haya citas disponibles."
       );
       await enviarEmail(
-        "El texto de 'No hay horas disponibles' ha desaparecido. ¡Puede haber citas disponibles!"
+        "El texto de 'No hay horas disponibles' no está visible. ¡Puede haber citas disponibles!"
+      );
+    } else {
+      console.log(
+        "ℹ️  El texto 'No hay horas disponibles' está visible. No hay citas disponibles en este momento."
       );
     }
   } catch (error) {
