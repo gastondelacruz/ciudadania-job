@@ -21,6 +21,9 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
+      - name: Borrar screenshots anteriores en el workspace
+        run: rm -f ultima-pantalla-*.png || true
+
       - name: Instalar navegadores de Playwright
         run: npx playwright install --with-deps
 
@@ -38,3 +41,4 @@ jobs:
           path: |
             ultima-pantalla-*.png
           if-no-files-found: warn
+          retention-days: 7
