@@ -21,6 +21,9 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
+      - name: Instalar navegadores de Playwright
+        run: npx playwright install --with-deps
+
       - name: Ejecutar monitor (genera screenshot)
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
