@@ -43,11 +43,15 @@ async function enviarEmail(mensaje) {
 }
 
 async function verificarDisponibilidad() {
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
-  const page = await context.newPage();
+  let browser;
+  let context;
+  let page;
 
   try {
+    browser = await chromium.launch({ headless: true });
+    context = await browser.newContext();
+    page = await context.newPage();
+
     console.log(
       `[${new Date().toLocaleString()}] Verificando disponibilidad...`
     );
@@ -229,7 +233,24 @@ async function verificarDisponibilidad() {
   } catch (error) {
     console.error("❌ Error durante la verificación:", error);
   } finally {
-    await browser.close();
+    try {
+      if (page) {
+        const screenshotPath = `ultima-pantalla-${Date.now()}.png`;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(
+          `🖼 Captura de la última pantalla guardada en ${screenshotPath}`
+        );
+      }
+    } catch (screenshotError) {
+      console.error(
+        "⚠️ Error al intentar capturar la última pantalla:",
+        screenshotError
+      );
+    }
+
+    if (browser) {
+      await browser.close();
+    }
   }
 }
 
