@@ -156,12 +156,50 @@ async function verificarDisponibilidad() {
 
     // Buscar en todos los frames (incluyendo la página principal)
     let textoVisibleEncontrado = false;
+    let errorCargandoDatos = false;
+
     for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
       const frame = frames[frameIndex];
       try {
         console.log(
           `🔍 Buscando en frame ${frameIndex === 0 ? "principal" : frameIndex}...`
         );
+
+        // Primero verificar si hay un error de carga de datos
+        const errorElements = frame.getByText(
+          "SE HA PRODUCIDO UN ERROR AL CARGAR LOS DATOS",
+          {
+            exact: false,
+          }
+        );
+        const errorCount = await errorElements.count();
+
+        if (errorCount > 0) {
+          // Verificar que el error esté visible
+          for (let i = 0; i < errorCount; i++) {
+            try {
+              const errorElement = errorElements.nth(i);
+              const isVisible = await errorElement.isVisible({ timeout: 2000 });
+              const computedStyle = await errorElement.evaluate((el) => {
+                return window.getComputedStyle(el).display;
+              });
+
+              if (isVisible && computedStyle !== "none") {
+                console.log(
+                  "⚠️  Error detectado: 'SE HA PRODUCIDO UN ERROR AL CARGAR LOS DATOS'. No se enviará email."
+                );
+                errorCargandoDatos = true;
+                break;
+              }
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+
+        if (errorCargandoDatos) {
+          break;
+        }
 
         // Usar getByText como en el test que funciona
         const noHayHorasElements = frame.getByText("No hay horas disponibles", {
@@ -217,8 +255,10 @@ async function verificarDisponibilidad() {
       }
     }
 
-    // Enviar email cuando el texto NO está visible (hay citas disponibles)
-    if (!textoVisibleEncontrado) {
+    // Enviar email solo si NO hay error de carga y el texto NO está visible (hay citas disponibles)
+    if (errorCargandoDatos) {
+      console.log("❌ Error de carga detectado. No se enviará email.");
+    } else if (!textoVisibleEncontrado) {
       console.log(
         "🎉 ¡El texto 'No hay horas disponibles' NO está visible! Posiblemente haya citas disponibles."
       );
