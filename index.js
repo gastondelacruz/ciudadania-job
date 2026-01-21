@@ -157,6 +157,7 @@ async function verificarDisponibilidad() {
     // Buscar en todos los frames (incluyendo la página principal)
     let textoVisibleEncontrado = false;
     let errorCargandoDatos = false;
+    let pantallaLeyMemoria = false;
 
     for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
       const frame = frames[frameIndex];
@@ -198,6 +199,44 @@ async function verificarDisponibilidad() {
         }
 
         if (errorCargandoDatos) {
+          break;
+        }
+
+        // Verificar si aparece la pantalla de "PRESENTACIÓN DE DOCUMENTACIÓN LEY MEMORIA DEMOCRÁTICA"
+        const leyMemoriaElements = frame.getByText(
+          "PRESENTACIÓN DE DOCUMENTACIÓN LEY MEMORIA DEMOCRÁTICA",
+          {
+            exact: false,
+          }
+        );
+        const leyMemoriaCount = await leyMemoriaElements.count();
+
+        if (leyMemoriaCount > 0) {
+          // Verificar que el texto esté visible
+          for (let i = 0; i < leyMemoriaCount; i++) {
+            try {
+              const leyMemoriaElement = leyMemoriaElements.nth(i);
+              const isVisible = await leyMemoriaElement.isVisible({
+                timeout: 2000,
+              });
+              const computedStyle = await leyMemoriaElement.evaluate((el) => {
+                return window.getComputedStyle(el).display;
+              });
+
+              if (isVisible && computedStyle !== "none") {
+                console.log(
+                  "✅ Pantalla de Ley Memoria Democrática detectada. Se enviará email."
+                );
+                pantallaLeyMemoria = true;
+                break;
+              }
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+
+        if (pantallaLeyMemoria) {
           break;
         }
 
@@ -255,19 +294,19 @@ async function verificarDisponibilidad() {
       }
     }
 
-    // Enviar email solo si NO hay error de carga y el texto NO está visible (hay citas disponibles)
+    // Enviar email SOLO si se encuentra la pantalla de Ley Memoria
     if (errorCargandoDatos) {
       console.log("❌ Error de carga detectado. No se enviará email.");
-    } else if (!textoVisibleEncontrado) {
+    } else if (pantallaLeyMemoria) {
       console.log(
-        "🎉 ¡El texto 'No hay horas disponibles' NO está visible! Posiblemente haya citas disponibles."
+        "🎉 ¡Pantalla de Ley Memoria Democrática detectada! Hay citas disponibles."
       );
       await enviarEmail(
-        "El texto de 'No hay horas disponibles' no está visible. ¡Puede haber citas disponibles!"
+        "Se detectó la pantalla de 'PRESENTACIÓN DE DOCUMENTACIÓN LEY MEMORIA DEMOCRÁTICA'. ¡Hay citas disponibles!"
       );
     } else {
       console.log(
-        "ℹ️  El texto 'No hay horas disponibles' está visible. No hay citas disponibles en este momento."
+        "ℹ️  Pantalla de Ley Memoria no detectada. No se enviará email."
       );
     }
   } catch (error) {
